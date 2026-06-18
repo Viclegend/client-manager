@@ -1,68 +1,46 @@
-# 🛡️ 客戶連線資訊管理系統
+# 🛡️ 連線資訊庫 (Connection Vault)
 
-這是一個輕量級的容器化 Web 應用程式，專為系統整合 (SI) 與維運團隊設計。專門用來集中管理與記錄各客戶旗下設備的連線資訊（IP、連線方式、帳號密碼），確保團隊資訊同步與存取安全。
+[繁體中文](README.md) | [简体中文](README.zh-CN.md) | [English](README.en.md)
 
-## 🌟 系統功能
+這是一個極致輕量化、基於 Docker 容器運行的 Web 應用程式。專為系統整合 (SI) 維運團隊、企業 MIS，以及擁有眾多 Hyper-V 或 Kubernetes (K8s) 節點的 Home Lab 玩家設計。幫助您告別散落各處的密碼表與 Excel，集中且安全地管理不同群組、機房或虛擬機環境的連線資訊。
 
-* **分層式架構管理：** 依據客戶名稱進行分類，採用手風琴折疊介面，畫面清爽直覺。
-* **強大檢索能力：** 支援關鍵字全域搜尋，可快速篩選客戶名稱、設備名稱、IP 或帳號。
-* **權限與防呆防護：** 全站登入驗證，並具備管理員密碼防護與「防呆刪除」機制。
-* **高安全性展示：** 敏感密碼預設遮罩，支援點擊「👁️」一鍵顯示/隱藏。
-* **現代化 UI 體驗：** 內建日/夜間主題切換，自動適應使用者的視覺需求。
+## 🌟 系統特色
 
----
+* 🔄 **批次匯入與備份：** 支援標準 CSV 格式一鍵匯入。遇到新群組會自動建檔；遇到重複設備則自動覆蓋更新帳密。
+* 🔍 **智慧全域搜尋：** 即時篩選群組名稱、設備名稱、IP 或帳號，尋找節點零延遲。
+* 🔒 **安全防護：** 登入驗證、敏感密碼預設遮罩（支援一鍵顯示/隱藏），並具備防呆刪除機制。
+* 🌗 **現代化 UI：** 乾淨俐落的手風琴折疊介面，內建日/夜間主題切換。
 
-## 🐳 環境準備 (Docker 安裝指南)
+## 🐳 快速部署指南
 
-本系統依賴 Docker 容器環境運行。若您的伺服器尚未安裝 Docker 與 Docker Compose，請依據您的作業系統執行以下安裝指令：
+本系統依賴 Docker 運行，請確保您的伺服器已安裝 Docker Compose。
 
-### ▶ Ubuntu / Debian 系統
+**1. 下載專案**
 ```bash
-sudo apt update
-sudo apt install docker.io docker-compose-v2 -y
-sudo systemctl enable --now docker
+git clone [https://github.com/您的帳號/client-manager.git](https://github.com/您的帳號/client-manager.git)
+cd client-manager
 ```
 
-### ▶ Rocky Linux / CentOS / RHEL 系統
-```bash
-sudo dnf install -y yum-utils
-sudo dnf config-manager --add-repo=[https://download.docker.com/linux/centos/docker-ce.repo](https://download.docker.com/linux/centos/docker-ce.repo)
-sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo systemctl enable --now docker
-```
-
----
-
-## 🚀 快速部署指南
-
-### 1. 取得專案與設定檔
-將本專案目錄下載至您的伺服器中。
-
-### 2. 建立環境變數
-複製範本檔並重新命名為 `.env`：
+**2. 環境變數設定**
+複製範本檔，並設定您的對外通訊埠與管理員登入帳密：
 ```bash
 cp .env.example .env
 ```
 
-### 3. 設定客製化參數
-打開 `.env` 檔案，設定好您的對外通訊埠與管理員帳密：
-```env
-HOST_PORT=9000
-ADMIN_USER=您的管理員帳號
-ADMIN_PASS=您的管理員密碼
-```
-
-### 4. 一鍵啟動服務
-執行以下指令，系統會自動從雲端拉取最新版本的映像檔並於背景運行：
+**3. 一鍵啟動服務**
 ```bash
 docker compose up -d
 ```
+🎉 **開始使用：** 開啟瀏覽器前往 `http://<伺服器IP>:<設定的Port>` 即可登入！所有的資料將會安全地持久化儲存於 `./data` 目錄中。
 
-🎉 **開始使用：** 開啟瀏覽器，前往 `http://<您的伺服器IP>:<您在.env設定的Port>`，輸入帳號密碼即可登入！
+## 🔄 資料匯入規範
+
+若要使用系統內的「匯入」功能，請嚴格遵守以下格式：
+1. **編碼與格式：** 僅支援帶有 **UTF-8 BOM** 編碼的 `.csv` 檔案（建議直接從系統下載「範例檔」進行編輯）。
+2. **覆蓋機制：** 若匯入的資料中包含系統已存在的「群組+設備」，系統將自動以新 CSV 檔案中的帳號密碼進行覆蓋更新。
 
 ---
 
-## 💾 資料備份與遷移說明
+## 🤖 關於開發方式 (Vibe Coding)
 
-* **資料持久化：** 系統所有的客戶與設備資料皆儲存於伺服器本機的 `./data/system_v4.db` 檔案中。
-* **備份方式：** 進行日常備份或伺服器遷移時，您僅需將專案目錄下的 `data` 資料夾完整打包複製即可。只要 `data` 資料夾存在，重新啟動容器時資料就會無縫還原。
+本專案的程式碼主要是透過 **Vibe Coding** 的方式，由人類開發者與 AI 助手協作編寫而成。這種現代化的開發流程讓我們能將焦點集中於「系統架構設計」、「維運痛點解決」與「使用者體驗」，並由 AI 協助完成底層邏輯與細節的實作。

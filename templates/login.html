@@ -1,34 +1,115 @@
 <!DOCTYPE html>
-<html lang="zh-TW" data-bs-theme="light">
+<html lang="{{ lang }}">
 <head>
     <meta charset="UTF-8">
-    <title>登入 - 連線資訊庫</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ t.sys_title }} - {{ t.login_title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="d-flex align-items-center justify-content-center vh-100 bg-body-tertiary">
-    <div class="card shadow" style="width: 350px;">
-        <div class="card-body p-4">
-            <h4 class="text-center mb-4">🛡️ 連線資訊庫登入</h4>
-            {% if error %}
-            <div class="alert alert-danger py-2">{{ error }}</div>
-            {% endif %}
-            <form action="/login" method="POST">
-                <div class="mb-3">
-                    <label class="form-label">管理員帳號</label>
-                    <input type="text" name="username" class="form-control" required autofocus>
-                </div>
-                <div class="mb-4">
-                    <label class="form-label">密碼</label>
-                    <input type="password" name="password" class="form-control" required>
-                </div>
-                <button type="submit" class="btn btn-primary w-100">登入</button>
-            </form>
-        </div>
-    </div>
-    <script>
-        if (localStorage.getItem('theme') === 'dark') {
-            document.documentElement.setAttribute('data-bs-theme', 'dark');
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --border-color: #dee2e6;
         }
-    </script>
+        [data-theme="dark"] {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --border-color: #333333;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background-color: var(--card-bg) !important;
+            color: var(--text-color) !important;
+            border-color: var(--border-color) !important;
+            width: 100%;
+            max-width: 400px;
+        }
+        /* 絕對定位的右上角工具列 */
+        .top-right-tools {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="top-right-tools">
+    <div class="dropdown">
+        <button class="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" type="button" data-bs-toggle="dropdown">
+            🌐 {% if lang == 'en' %}English{% elif lang == 'zh-CN' %}简体中文{% else %}繁體中文{% endif %}
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='zh-TW', next=request.path) }}">繁體中文</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='zh-CN', next=request.path) }}">简体中文</a></li>
+            <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='en', next=request.path) }}">English</a></li>
+        </ul>
+    </div>
+    <button id="themeToggle" class="btn btn-sm btn-outline-warning">🌙</button>
+</div>
+
+<div class="card shadow">
+    <div class="card-body p-4">
+        <h4 class="card-title text-center mb-4 fw-bold">{{ t.nav_brand }}</h4>
+        <h6 class="text-center text-muted mb-4">{{ t.login_title }}</h6>
+        
+        {% if error %}
+        <div class="alert alert-danger text-center py-2" role="alert">
+            {{ t.login_error }}
+        </div>
+        {% endif %}
+        
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ t.field_username }}</label>
+                <input type="text" name="username" class="form-control" required
+                       oninvalid="this.setCustomValidity('{{ t.msg_required }}')" oninput="this.setCustomValidity('')">
+            </div>
+            <div class="mb-4">
+                <label class="form-label fw-bold">{{ t.field_password }}</label>
+                <input type="password" name="password" class="form-control" required
+                       oninvalid="this.setCustomValidity('{{ t.msg_required }}')" oninput="this.setCustomValidity('')">
+            </div>
+            <button type="submit" class="btn btn-primary w-100 fw-bold">{{ t.btn_login }}</button>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // 🌙 日夜間主題切換控制
+    const themeToggle = document.getElementById('themeToggle');
+    const currentTheme = localStorage.getItem('theme') || 'light';
+    
+    if (currentTheme === 'dark') {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggle.innerText = '☀️';
+    }
+
+    themeToggle.addEventListener('click', () => {
+        let theme = document.documentElement.getAttribute('data-theme');
+        if (theme === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            themeToggle.innerText = '🌙';
+            localStorage.setItem('theme', 'light');
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeToggle.innerText = '☀️';
+            localStorage.setItem('theme', 'dark');
+        }
+    });
+</script>
 </body>
 </html>

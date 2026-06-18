@@ -4,3 +4,6 @@
 # 忽略本地端的資料庫與掛載資料夾
 data/
 __pycache__/
+
+# 忽略 Docker 本地開發覆寫檔
+docker-compose.override.yaml
