@@ -11,59 +11,43 @@
             --text-color: #212529;
             --card-bg: #ffffff;
             --border-color: #dee2e6;
+            --hover-bg: #e9ecef;
         }
         [data-theme="dark"] {
             --bg-color: #121212;
             --text-color: #e0e0e0;
             --card-bg: #1e1e1e;
             --border-color: #333333;
+            --hover-bg: #2b2b2b;
         }
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            transition: background-color 0.3s, color 0.3s;
-        }
-        .navbar, .card, .list-group-item, .accordion-item, .accordion-button, .modal-content {
+        body { background-color: var(--bg-color); color: var(--text-color); }
+        .navbar, .card, .modal-content, .table {
             background-color: var(--card-bg) !important;
             color: var(--text-color) !important;
             border-color: var(--border-color) !important;
         }
-        .accordion-button:not(.collapsed) {
-            background-color: rgba(13, 110, 253, 0.1) !important;
-            color: #0d6efd !important;
-        }
-        .password-toggle {
-            cursor: pointer;
-            color: #0d6efd;
-            font-size: 0.85rem;
-            text-decoration: none;
-            margin-left: 8px;
-            user-select: none;
-        }
-        .password-toggle:hover {
-            text-decoration: underline;
-        }
-        .password-mask {
-            font-family: monospace;
-        }
+        .table th, .table td { border-color: var(--border-color); }
+        .table-hover tbody tr:hover { background-color: var(--hover-bg) !important; color: var(--text-color); }
+        
+        .tree-node { padding: 4px 8px; border-radius: 4px; display: block; text-decoration: none; color: var(--text-color); }
+        .tree-node:hover { background-color: var(--hover-bg); }
+        .tree-node.active { background-color: rgba(13, 110, 253, 0.1); color: #0d6efd; font-weight: bold; border-left: 3px solid #0d6efd; }
+        
+        .password-mask { font-family: monospace; letter-spacing: 2px; }
+        .action-btn { cursor: pointer; text-decoration: none; padding: 0 4px; }
+        
+        .sortable-header { cursor: pointer; user-select: none; transition: background-color 0.2s; }
+        .sortable-header:hover { background-color: var(--hover-bg); }
+        .sort-icon { font-size: 0.8rem; margin-left: 4px; color: #888; }
     </style>
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg border-bottom sticky-top">
+<nav class="navbar navbar-expand-lg border-bottom sticky-top shadow-sm">
     <div class="container-fluid">
-        <a class="navbar-brand fw-bold" href="#">{{ t.nav_brand }}</a>
-        
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        
+        <a class="navbar-brand fw-bold" href="{{ url_for('index') }}">{{ t.nav_brand }}</a>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <div class="mx-auto my-2 my-lg-0" style="width: 40%;">
-                <input type="text" id="globalSearch" class="form-control" placeholder="{{ t.search_placeholder }}">
-            </div>
-            
-            <ul class="navbar-nav align-items-center gap-2">
+            <ul class="navbar-nav ms-auto align-items-center gap-2">
                 <li class="nav-item">
                     <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#exportModal">{{ t.btn_export }}</button>
                 </li>
@@ -72,239 +56,404 @@
                 </li>
                 <li class="nav-item">
                     <form action="{{ url_for('import_csv') }}" method="POST" enctype="multipart/form-data" class="d-inline-flex align-items-center">
-                        <div class="input-group input-group-sm me-1" style="max-width: 260px;">
-                            <label class="input-group-text mb-0 btn btn-outline-secondary text-nowrap" for="csvFileInput" style="cursor: pointer;">
-                                {{ t.btn_browse }}
-                            </label>
-                            <input type="file" name="csv_file" id="csvFileInput" accept=".csv" class="d-none" required 
-                                   oninvalid="this.setCustomValidity('{{ t.msg_required }}')">
-                            <span class="form-control text-muted text-truncate" id="fileNameDisplay" style="width: 130px; user-select: none;">
-                                {{ t.no_file_chosen }}
-                            </span>
+                        <div class="input-group input-group-sm me-1" style="max-width: 250px;">
+                            <label class="input-group-text mb-0 btn btn-outline-secondary text-nowrap" for="csvFileInput" style="cursor: pointer;">{{ t.btn_browse }}</label>
+                            <input type="file" name="csv_file" id="csvFileInput" accept=".csv" class="d-none" required>
+                            <span class="form-control text-muted text-truncate" id="fileNameDisplay" style="width: 120px;">{{ t.no_file_chosen }}</span>
                         </div>
                         <button type="submit" class="btn btn-sm btn-primary text-nowrap">{{ t.btn_import }}</button>
                     </form>
                 </li>
-                
                 <li class="nav-item dropdown ms-2">
-                    <button class="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" type="button" data-bs-toggle="dropdown">
-                        🌐 {% if lang == 'en' %}English{% elif lang == 'zh-CN' %}简体中文{% else %}繁體中文{% endif %}
-                    </button>
+                    <button class="btn btn-sm btn-outline-primary dropdown-toggle text-nowrap" type="button" data-bs-toggle="dropdown">🌐 {% if lang == 'en' %}EN{% elif lang == 'zh-CN' %}简{% else %}繁{% endif %}</button>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-menu-item dropdown-item" href="{{ url_for('set_lang', lang_code='zh-TW', next=request.path) }}">繁體中文</a></li>
-                        <li><a class="dropdown-menu-item dropdown-item" href="{{ url_for('set_lang', lang_code='zh-CN', next=request.path) }}">简体中文</a></li>
-                        <li><a class="dropdown-menu-item dropdown-item" href="{{ url_for('set_lang', lang_code='en', next=request.path) }}">English</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='zh-TW', next=request.url) }}">繁體中文</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='zh-CN', next=request.url) }}">简体中文</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('set_lang', lang_code='en', next=request.url) }}">English</a></li>
                     </ul>
                 </li>
-
-                <li class="nav-item ms-1">
-                    <button id="themeToggle" class="btn btn-sm btn-outline-warning">🌙</button>
-                </li>
-                <li class="nav-item ms-2">
-                    <a class="btn btn-sm btn-danger text-nowrap" href="{{ url_for('logout') }}">{{ t.btn_logout }}</a>
-                </li>
+                <li class="nav-item ms-1"><button id="themeToggle" class="btn btn-sm btn-outline-warning">🌙</button></li>
+                <li class="nav-item ms-2"><a class="btn btn-sm btn-danger text-nowrap" href="{{ url_for('logout') }}">{{ t.btn_logout }}</a></li>
             </ul>
         </div>
     </div>
 </nav>
 
-<div class="container-fluid mt-4">
-    <div class="row px-2">
-        <div class="col-md-3 mb-4">
-            <div class="card p-3 shadow-sm">
-                <h5 class="fw-bold mb-3">{{ t.sidebar_title }}</h5>
-                <form action="{{ url_for('add_group') }}" method="POST" class="mb-3">
-                    <div class="input-group">
-                        <input type="text" name="group_name" class="form-control" placeholder="{{ t.add_group_placeholder }}" required
-                               oninvalid="this.setCustomValidity('{{ t.msg_required }}')" oninput="this.setCustomValidity('')">
-                        <button class="btn btn-success text-nowrap" type="submit">{{ t.btn_add_group }}</button>
-                    </div>
-                </form>
+<div class="container-fluid mt-3">
+    <div class="row">
+        <div class="col-md-3 col-lg-2 mb-4 border-end" style="min-height: 85vh;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0 text-secondary">{{ t.sidebar_title }}</h6>
+                <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addGroupModal" onclick="openAddGroupModal(null)">➕</button>
+            </div>
+            
+            {% macro render_tree(nodes, current_id) %}
+            <ul class="list-unstyled ps-3 border-start ms-2 border-primary border-opacity-25">
+                {% for g in nodes %}
+                <li class="my-1">
+                    <a href="{{ url_for('index', group_id=g.id) }}" class="tree-node {% if selected_group and g.id == selected_group.id %}active{% endif %}">
+                        {% if g.children %}📂{% else %}📄{% endif %} {{ g.name }}
+                    </a>
+                    {% if g.children %}
+                        {{ render_tree(g.children, current_id) }}
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% endmacro %}
+            
+            <div class="mt-2" style="margin-left: -1rem;">
+                {{ render_tree(root_groups, selected_group.id if selected_group else None) }}
             </div>
         </div>
 
-        <div class="col-md-9">
-            {% if not groups %}
-            <div class="alert alert-info text-center">{{ t.no_group_alert }}</div>
-            {% endif %}
-            
-            <div class="accordion" id="groupAccordion">
-                {% for g in groups %}
-                <div class="accordion-item group-card mb-3 shadow-sm rounded border overflow-hidden" data-group-name="{{ g.name }}">
-                    <h2 class="accordion-header">
-                        <button class="accordion-button collapsed fw-bold d-flex justify-content-between align-items-center" type="button" data-bs-toggle="collapse" data-bs-target="#collapseG{{ g.id }}">
-                            <span class="group-title-text">{{ g.name }} ({{ g.devices|length }})</span>
-                            <form action="{{ url_for('delete_group', group_id=g.id) }}" method="POST" class="ms-auto me-3 d-inline" onsubmit="return confirm('{{ t.confirm_delete_group }}');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2" onclick="event.stopPropagation();">{{ t.btn_delete }}</button>
-                            </form>
-                        </button>
-                    </h2>
-                    
-                    <div id="collapseG{{ g.id }}" class="accordion-collapse collapse" data-bs-parent="#groupAccordion">
-                        <div class="accordion-body bg-light-subtle">
-                            <div class="row row-cols-1 row-cols-md-2 g-3 mb-4 device-container">
-                                {% for d in g.devices %}
-                                <div class="col device-card" data-search-content="{{ g.name }} {{ d.name }} {{ d.ip }} {{ d.username }}">
-                                    <div class="card h-100 shadow-sm border-start border-primary border-4">
-                                        <div class="card-body p-3 position-relative">
-                                            <form action="{{ url_for('delete_device', device_id=d.id) }}" method="POST" class="position-absolute top-0 end-0 p-2" onsubmit="return confirm('{{ t.confirm_delete_device }}');">
-                                                <button type="submit" class="btn-close" style="font-size: 0.8rem;"></button>
-                                            </form>
-                                            <h6 class="card-title fw-bold text-primary mb-2">{{ d.name }}</h6>
-                                            <div class="small">
-                                                <div class="mb-1"><strong>{{ t.field_ip }}:</strong> {{ d.ip }}</div>
-                                                <div class="mb-1"><strong>{{ t.field_method }}:</strong> <span class="badge bg-secondary">{{ d.method }}</span></div>
-                                                <div class="mb-1"><strong>{{ t.field_username }}:</strong> {{ d.username }}</div>
-                                                <div>
-                                                    <strong>{{ t.field_password }}:</strong> 
-                                                    <span class="password-mask" data-raw-password="{{ d.password }}">••••••••</span>
-                                                    <a class="password-toggle" onclick="togglePassword(this)">{{ t.toggle_show }}</a>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="card p-3 border-dashed">
-                                <h6 class="fw-bold text-secondary mb-2">{{ t.add_device_title }}{{ g.name }}</h6>
-                                <form action="{{ url_for('add_device', group_id=g.id) }}" method="POST" class="row g-2">
-                                    <div class="col-md-3">
-                                        <input type="text" name="device_name" class="form-control form-control-sm" placeholder="{{ t.field_device_name }}" required
-                                               oninvalid="this.setCustomValidity('{{ t.msg_required }}')" oninput="this.setCustomValidity('')">
-                                    </div>
-                                    <div class="col-md-2"><input type="text" name="ip" class="form-control form-control-sm" placeholder="{{ t.field_ip }}"></div>
-                                    <div class="col-md-2"><input type="text" name="method" class="form-control form-control-sm" placeholder="{{ t.field_method }}"></div>
-                                    <div class="col-md-2"><input type="text" name="username" class="form-control form-control-sm" placeholder="{{ t.field_username }}"></div>
-                                    <div class="col-md-2"><input type="text" name="password" class="form-control form-control-sm" placeholder="{{ t.field_password }}"></div>
-                                    <div class="col-md-1"><button type="submit" class="btn btn-sm btn-primary w-100 text-nowrap">{{ t.btn_add_device }}</button></div>
-                                </form>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
+        <div class="col-md-9 col-lg-10">
+            {% if not selected_group %}
+            <div class="alert alert-secondary text-center mt-5 w-50 mx-auto border-dashed">
+                <h4 class="mb-3">🛡️</h4>
+                {{ t.no_group_selected }}
             </div>
+            {% else %}
+            <div class="d-flex justify-content-between align-items-start border-bottom pb-3 mb-3">
+                <div>
+                    <h4 class="fw-bold text-primary mb-1">{{ selected_group.name }}</h4>
+                    {% if selected_group.remark %}
+                    <span class="badge bg-info text-dark">{{ selected_group.remark }}</span>
+                    {% endif %}
+                </div>
+                <div class="btn-group shadow-sm">
+                    <button id="btnBatchMove" class="btn btn-sm btn-outline-info fw-bold" data-bs-toggle="modal" data-bs-target="#batchMoveModal" disabled>🚚 {{ t.btn_batch_move }}</button>
+                    <button class="btn btn-sm btn-outline-primary fw-bold" data-bs-toggle="modal" data-bs-target="#addDeviceModal">➕ {{ t.btn_add_device }}</button>
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#addGroupModal" onclick="openAddGroupModal({{ selected_group.id }})">📁 {{ t.btn_add_subgroup }}</button>
+                    <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editGroupModal">✏️ {{ t.btn_edit }}</button>
+                    <form action="{{ url_for('delete_group', group_id=selected_group.id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ t.confirm_delete_group }}');">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" style="border-top-left-radius: 0; border-bottom-left-radius: 0;">🗑️</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="table-responsive shadow-sm rounded border">
+                <table class="table table-sm table-hover align-middle mb-0" id="deviceTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3" style="width: 40px;"><input type="checkbox" class="form-check-input" id="selectAll"></th>
+                            <th class="sortable-header pe-3" onclick="sortTable(1, false)">{{ t.field_device_name }}<span class="sort-icon" id="sortIcon1">↕️</span></th>
+                            <th class="sortable-header pe-3" onclick="sortTable(2, true)">{{ t.field_ip }}<span class="sort-icon" id="sortIcon2">↕️</span></th>
+                            <th class="sortable-header pe-3" onclick="sortTable(3, false)">{{ t.field_method }}<span class="sort-icon" id="sortIcon3">↕️</span></th>
+                            <th class="sortable-header pe-3" onclick="sortTable(4, false)">{{ t.field_username }}<span class="sort-icon" id="sortIcon4">↕️</span></th>
+                            <th>{{ t.field_password }}</th>
+                            <th>{{ t.field_remark }}</th>
+                            <th class="text-end pe-3">⚙️</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in devices %}
+                        <tr>
+                            <td class="ps-3"><input type="checkbox" class="form-check-input device-chk" value="{{ d.id }}"></td>
+                            <td class="fw-bold text-primary">{{ d.name }}</td>
+                            <td><span class="font-monospace text-muted">{{ d.ip }}</span></td>
+                            <td><span class="badge bg-secondary">{{ d.method }}</span></td>
+                            <td>{{ d.username }}</td>
+                            <td>
+                                <span class="password-mask text-muted" data-pw="{{ d.password }}">********</span>
+                                <a class="action-btn text-primary ms-1 text-decoration-none small fw-bold" onclick="togglePw(this)">{{ t.toggle_show }}</a>
+                            </td>
+                            <td class="small text-muted">{{ d.remark }}</td>
+                            <td class="text-end pe-3 text-nowrap">
+                                <a class="action-btn text-warning" onclick="openEditDeviceModal({{ d.id }}, '{{ d.name }}', '{{ d.ip }}', '{{ d.method }}', '{{ d.username }}', '{{ d.password }}', '{{ d.remark }}')">✏️</a>
+                                <form action="{{ url_for('delete_device', device_id=d.id, return_group_id=selected_group.id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ t.confirm_delete_device }}');">
+                                    <button type="submit" class="btn btn-link p-0 text-danger text-decoration-none ms-2">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not devices %}
+                        <tr id="noDataRow"><td colspan="8" class="text-center py-4 text-muted">No devices found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="exportModal" tabindex="-1" aria-labelledby="exportModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header border-bottom-0">
-                <h5 class="modal-title fw-bold" id="exportModalLabel">{{ t.export_title }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <form action="{{ url_for('export_data') }}" method="GET">
-                <div class="modal-body py-4">
-                    <label class="form-label text-muted">{{ t.export_select }}</label>
-                    <select name="group_id" class="form-select border-primary shadow-sm">
-                        <option value="all" class="fw-bold text-primary">{{ t.export_all }}</option>
-                        {% for g in groups %}
-                        <option value="{{ g.id }}">{{ g.name }}</option>
+{% if selected_group %}
+<div class="modal fade" id="batchMoveModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <form action="{{ url_for('batch_move') }}" method="POST" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold">{{ t.move_device_title }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" name="device_ids" id="batchDeviceIds">
+                <input type="hidden" name="current_group_id" value="{{ selected_group.id }}">
+                
+                <label class="form-label fw-bold">{{ t.field_target_group }}</label>
+                <select name="target_group_id" class="form-select border-info shadow-sm" required>
+                    <option value="" disabled selected>-- {{ t.field_target_group }} --</option>
+                    {% macro render_group_options(nodes, depth) %}
+                        {% for g in nodes %}
+                            <option value="{{ g.id }}" {% if g.id == selected_group.id %}disabled{% endif %}>
+                                {{ ' ' * depth }}{{ '└ ' if depth > 0 else '' }}{{ g.name }}
+                            </option>
+                            {% if g.children %}
+                                {{ render_group_options(g.children, depth + 1) }}
+                            {% endif %}
                         {% endfor %}
-                    </select>
+                    {% endmacro %}
+                    {{ render_group_options(root_groups, 0) }}
+                </select>
+            </div>
+            <div class="modal-footer p-2"><button type="submit" class="btn btn-info text-white fw-bold w-100">🚚 {{ t.btn_batch_move }}</button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="addGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ url_for('add_group') }}" method="POST" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold" id="addGroupModalTitle">{{ t.add_group_title }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" name="parent_id" id="modalParentId" value="">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ t.field_name }} <span class="text-danger">*</span></label>
+                    <input type="text" name="group_name" class="form-control" required>
                 </div>
-                <div class="modal-footer border-top-0 bg-light-subtle">
-                    <button type="submit" class="btn btn-primary px-4" onclick="bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide()">
-                        {{ t.btn_confirm }}
-                    </button>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">{{ t.field_remark }}</label>
+                    <input type="text" name="remark" class="form-control">
                 </div>
-            </form>
-        </div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">{{ t.btn_add_group }}</button></div>
+        </form>
+    </div>
+</div>
+
+{% if selected_group %}
+<div class="modal fade" id="editGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ url_for('edit_group', group_id=selected_group.id) }}" method="POST" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold">{{ t.edit_group_title }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label fw-bold">{{ t.field_name }} <span class="text-danger">*</span></label>
+                    <input type="text" name="group_name" class="form-control" value="{{ selected_group.name }}" required>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">{{ t.field_remark }}</label>
+                    <input type="text" name="remark" class="form-control" value="{{ selected_group.remark }}">
+                </div>
+            </div>
+            <div class="modal-footer"><button type="submit" class="btn btn-warning w-100 fw-bold">💾 Save</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="addDeviceModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form action="{{ url_for('add_device', group_id=selected_group.id) }}" method="POST" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold">{{ t.btn_add_device }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small fw-bold mb-1">{{ t.field_device_name }}*</label><input type="text" name="device_name" class="form-control form-control-sm" required></div>
+                    <div class="col-6"><label class="form-label small fw-bold mb-1">{{ t.field_ip }}</label><input type="text" name="ip" class="form-control form-control-sm"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_method }}</label><input type="text" name="method" class="form-control form-control-sm" placeholder="e.g. SSH, RDP"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_username }}</label><input type="text" name="username" class="form-control form-control-sm"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_password }}</label><input type="text" name="password" class="form-control form-control-sm"></div>
+                    <div class="col-12 mt-2"><label class="form-label small fw-bold mb-1">{{ t.field_remark }}</label><input type="text" name="remark" class="form-control form-control-sm"></div>
+                </div>
+            </div>
+            <div class="modal-footer p-1"><button type="submit" class="btn btn-sm btn-primary w-100">{{ t.btn_add_device }}</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="editDeviceModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form id="editDeviceForm" method="POST" class="modal-content">
+            <div class="modal-header"><h5 class="modal-title fw-bold">{{ t.edit_device_title }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <div class="row g-2 mb-2">
+                    <div class="col-6"><label class="form-label small fw-bold mb-1">{{ t.field_device_name }}*</label><input type="text" name="device_name" id="ed_name" class="form-control form-control-sm" required></div>
+                    <div class="col-6"><label class="form-label small fw-bold mb-1">{{ t.field_ip }}</label><input type="text" name="ip" id="ed_ip" class="form-control form-control-sm"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_method }}</label><input type="text" name="method" id="ed_method" class="form-control form-control-sm"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_username }}</label><input type="text" name="username" id="ed_user" class="form-control form-control-sm"></div>
+                    <div class="col-4"><label class="form-label small fw-bold mb-1">{{ t.field_password }}</label><input type="text" name="password" id="ed_pass" class="form-control form-control-sm"></div>
+                    <div class="col-12 mt-2"><label class="form-label small fw-bold mb-1">{{ t.field_remark }}</label><input type="text" name="remark" id="ed_remark" class="form-control form-control-sm"></div>
+                </div>
+            </div>
+            <div class="modal-footer p-1"><button type="submit" class="btn btn-sm btn-warning w-100 fw-bold">💾 Save</button></div>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <form action="{{ url_for('export_data') }}" method="GET" class="modal-content">
+            <div class="modal-body pt-4">
+                <label class="form-label text-muted fw-bold">{{ t.export_select }}</label>
+                <select name="group_id" class="form-select border-primary shadow-sm">
+                    <option value="all" class="fw-bold text-primary">{{ t.export_all }}</option>
+                    {% macro render_export_options(nodes, depth) %}
+                        {% for g in nodes %}
+                            <option value="{{ g.id }}">
+                                {{ ' ' * depth }}{{ '└ ' if depth > 0 else '' }}{{ g.name }}
+                            </option>
+                            {% if g.children %}
+                                {{ render_export_options(g.children, depth + 1) }}
+                            {% endif %}
+                        {% endfor %}
+                    {% endmacro %}
+                    {{ render_export_options(root_groups, 0) }}
+                </select>
+            </div>
+            <div class="modal-footer border-0 pb-3 pt-0"><button type="submit" class="btn btn-primary w-100" onclick="bootstrap.Modal.getInstance(document.getElementById('exportModal')).hide()">{{ t.btn_confirm }}</button></div>
+        </form>
     </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // 📁 監聽檔案上傳按鈕，動態替換檔名顯示並清除必填錯誤
-    document.getElementById('csvFileInput').addEventListener('change', function() {
-        this.setCustomValidity(''); 
+    let currentSort = { colIndex: -1, ascending: true };
+
+    // 🌟 核心升級：表格點擊與自動排序函數 (新增 isAuto 參數防止防鎖死觸發)
+    function sortTable(colIndex, isIp = false, isAuto = false) {
+        const table = document.getElementById("deviceTable");
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        const rows = Array.from(tbody.querySelectorAll("tr"));
         
-        const display = document.getElementById('fileNameDisplay');
-        if (this.files && this.files.length > 0) {
-            display.textContent = this.files[0].name;
-            display.classList.remove('text-muted');
-            display.classList.add('text-primary', 'fw-bold');
-        } else {
-            display.textContent = "{{ t.no_file_chosen }}";
-            display.classList.add('text-muted');
-            display.classList.remove('text-primary', 'fw-bold');
+        if (document.getElementById("noDataRow")) return;
+
+        if (!isAuto) {
+            if (currentSort.colIndex === colIndex) {
+                currentSort.ascending = !currentSort.ascending;
+            } else {
+                currentSort.colIndex = colIndex;
+                currentSort.ascending = true;
+            }
+        }
+
+        // 🌟 記住排序狀態到本機瀏覽器中
+        localStorage.setItem("sortColIndex", colIndex);
+        localStorage.setItem("sortAscending", currentSort.ascending);
+
+        for (let i = 1; i <= 4; i++) {
+            const icon = document.getElementById("sortIcon" + i);
+            if (icon) {
+                icon.innerText = (i === colIndex) ? (currentSort.ascending ? "🔼" : "🔽") : "↕️";
+            }
+        }
+
+        rows.sort((rowA, rowB) => {
+            const cellA = rowA.children[colIndex].innerText.trim();
+            const cellB = rowB.children[colIndex].innerText.trim();
+
+            if (isIp) {
+                if (!cellA) return currentSort.ascending ? 1 : -1;
+                if (!cellB) return currentSort.ascending ? -1 : 1;
+                const partsA = cellA.split('.').map(Number);
+                const partsB = cellB.split('.').map(Number);
+                if (partsA.length !== 4) return currentSort.ascending ? 1 : -1;
+                if (partsB.length !== 4) return currentSort.ascending ? -1 : 1;
+                for (let i = 0; i < 4; i++) {
+                    if (partsA[i] !== partsB[i]) {
+                        return currentSort.ascending ? partsA[i] - partsB[i] : partsB[i] - partsA[i];
+                    }
+                }
+                return 0;
+            } else {
+                return currentSort.ascending
+                    ? cellA.localeCompare(cellB, undefined, {numeric: true, sensitivity: 'base'})
+                    : cellB.localeCompare(cellA, undefined, {numeric: true, sensitivity: 'base'});
+            }
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+    }
+
+    // 🌟 核心升級：網頁載入時自動攔截並讀取舊有排序設定
+    document.addEventListener("DOMContentLoaded", () => {
+        const savedCol = localStorage.getItem("sortColIndex");
+        const savedAsc = localStorage.getItem("sortAscending");
+        if (savedCol !== null) {
+            currentSort.colIndex = parseInt(savedCol);
+            currentSort.ascending = (savedAsc === "true");
+            const isIp = (currentSort.colIndex === 2); // IP 欄位在 index 2
+            sortTable(currentSort.colIndex, isIp, true);
         }
     });
 
-    // 👁️ 密碼顯示/隱藏切換
-    function togglePassword(element) {
-        const span = element.previousElementSibling;
-        const rawPassword = span.getAttribute('data-raw-password');
-        const showText = "{{ t.toggle_show }}";
-        const hideText = "{{ t.toggle_hide }}";
-        
-        if (element.innerText === showText) {
-            span.innerText = rawPassword;
-            element.innerText = hideText;
-        } else {
-            span.innerText = '••••••••';
-            element.innerText = showText;
+    const selectAll = document.getElementById('selectAll');
+    const deviceChks = document.querySelectorAll('.device-chk');
+    const btnBatchMove = document.getElementById('btnBatchMove');
+    const batchDeviceIds = document.getElementById('batchDeviceIds');
+
+    function updateBatchMoveState() {
+        if (!btnBatchMove) return;
+        const checkedValues = Array.from(deviceChks).filter(chk => chk.checked).map(chk => chk.value);
+        btnBatchMove.disabled = checkedValues.length === 0;
+        batchDeviceIds.value = checkedValues.join(',');
+        if (selectAll && deviceChks.length > 0) {
+            selectAll.checked = checkedValues.length === deviceChks.length;
         }
     }
 
-    // 🔍 智慧型全域即時搜尋系統
-    document.getElementById('globalSearch').addEventListener('input', function(e) {
-        const query = e.target.value.toLowerCase().trim();
-        const groups = document.querySelectorAll('.group-card');
-        
-        groups.forEach(group => {
-            const groupName = group.getAttribute('data-group-name').toLowerCase();
-            const deviceCards = group.querySelectorAll('.device-card');
-            let groupHasVisibleDevice = false;
-            let deviceMatchCount = 0;
-
-            deviceCards.forEach(card => {
-                const searchContent = card.getAttribute('data-search-content').toLowerCase();
-                if (searchContent.includes(query)) {
-                    card.style.display = '';
-                    groupHasVisibleDevice = true;
-                    deviceMatchCount++;
-                } else {
-                    card.style.display = 'none';
-                }
-            });
-
-            if (query === '' || groupName.includes(query) || groupHasVisibleDevice) {
-                group.style.display = '';
-                if (groupName.includes(query) && deviceMatchCount === 0) {
-                    deviceCards.forEach(card => card.style.display = '');
-                }
-            } else {
-                group.style.display = 'none';
-            }
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            deviceChks.forEach(chk => chk.checked = this.checked);
+            updateBatchMoveState();
         });
-    });
+    }
+    deviceChks.forEach(chk => chk.addEventListener('change', updateBatchMoveState));
 
-    // 🌙 日夜間主題切換控制
+    function openAddGroupModal(parentId) {
+        document.getElementById('modalParentId').value = parentId || '';
+        document.getElementById('addGroupModalTitle').innerText = parentId ? '{{ t.btn_add_subgroup }}' : '{{ t.add_group_title }}';
+    }
+
+    function openEditDeviceModal(id, name, ip, method, user, pw, remark) {
+        document.getElementById('editDeviceForm').action = "/edit_device/" + id + "?return_group_id={{ selected_group.id if selected_group else '' }}";
+        document.getElementById('ed_name').value = name;
+        document.getElementById('ed_ip').value = ip;
+        document.getElementById('ed_method').value = method;
+        document.getElementById('ed_user').value = user;
+        document.getElementById('ed_pass').value = pw;
+        document.getElementById('ed_remark').value = remark;
+        new bootstrap.Modal(document.getElementById('editDeviceModal')).show();
+    }
+
+    const csvInput = document.getElementById('csvFileInput');
+    if (csvInput) {
+        csvInput.addEventListener('change', function() {
+            const display = document.getElementById('fileNameDisplay');
+            display.textContent = this.files.length > 0 ? this.files[0].name : "{{ t.no_file_chosen }}";
+            display.classList.toggle('text-primary', this.files.length > 0);
+        });
+    }
+
+    function togglePw(btn) {
+        const span = btn.previousElementSibling;
+        if (span.innerText === '********') {
+            span.innerText = span.getAttribute('data-pw');
+            btn.innerText = '{{ t.toggle_hide }}';
+        } else {
+            span.innerText = '********';
+            btn.innerText = '{{ t.toggle_show }}';
+        }
+    }
+
     const themeToggle = document.getElementById('themeToggle');
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    
-    if (currentTheme === 'dark') {
+    if ((localStorage.getItem('theme') || 'light') === 'dark') {
         document.documentElement.setAttribute('data-theme', 'dark');
         themeToggle.innerText = '☀️';
     }
-
     themeToggle.addEventListener('click', () => {
-        let theme = document.documentElement.getAttribute('data-theme');
-        if (theme === 'dark') {
-            document.documentElement.removeAttribute('data-theme');
-            themeToggle.innerText = '🌙';
-            localStorage.setItem('theme', 'light');
-        } else {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            themeToggle.innerText = '☀️';
-            localStorage.setItem('theme', 'dark');
-        }
+        const isDark = document.documentElement.hasAttribute('data-theme');
+        isDark ? document.documentElement.removeAttribute('data-theme') : document.documentElement.setAttribute('data-theme', 'dark');
+        themeToggle.innerText = isDark ? '🌙' : '☀️';
+        localStorage.setItem('theme', isDark ? 'light' : 'dark');
     });
 </script>
 </body>
