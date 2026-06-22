@@ -7,10 +7,9 @@ from flask import Flask, render_template, request, redirect, url_for, session, m
 
 app = Flask(__name__)
 
-# 安全金鑰與會話生命週期控管
 app.secret_key = os.environ.get('SECRET_KEY', 'netcred-secret-key-12345')
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)  # 🌟 核心修正：30分鐘不活動自動過期
-app.config['SESSION_REFRESH_EACH_REQUEST'] = True                # 每次讀取自動刷新計時，確保連續使用不斷線
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(minutes=30)
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True
 
 DB_PATH = '/app/data/connection_vault_v6.db' if os.path.exists('/.dockerenv') else './data/connection_vault_v6.db'
 
@@ -35,7 +34,7 @@ LOCALES = {
         'add_group_title': '建立主群組',
         'add_group_placeholder': '群組名稱...',
         'btn_add_group': '建立',
-        'no_group_selected': '👈 請從左側選擇一個群組以檢視或新增設備。',
+        'no_group_selected': '📁 請從「群組目錄」中選擇一個群組以檢視或新增設備。',
         'btn_add_device': '新增設備',
         'btn_add_subgroup': '新增子群組',
         'btn_batch_move': '批次移動',
@@ -49,6 +48,7 @@ LOCALES = {
         'field_username': '帳號',
         'field_password': '密碼',
         'field_target_group': '選擇目標群組',
+        'field_group': '所屬群組',
         'confirm_delete_group': '確定要刪除此群組嗎？\n⚠️ 警告：這將會連帶刪除底下「所有的子群組」與「設備」！',
         'confirm_delete_device': '確定要刪除此設備連線資訊嗎？',
         'toggle_show': '[顯示]',
@@ -56,7 +56,12 @@ LOCALES = {
         'msg_required': '請填寫此欄位！',
         'edit_group_title': '編輯群組',
         'edit_device_title': '編輯設備資訊',
-        'move_device_title': '移動已選設備'
+        'move_device_title': '移動已選設備',
+        'search_placeholder': '全站搜尋設備、IP...',
+        'btn_search': '搜尋',
+        'search_results': '全站搜尋結果',
+        'no_search_result': '👻 找不到任何相符的設備...', 
+        'no_devices': '目前此群組內沒有任何設備。'
     },
     'zh-CN': {
         'sys_title': '连线信息库',
@@ -78,7 +83,7 @@ LOCALES = {
         'add_group_title': '建立主分组',
         'add_group_placeholder': '分组名称...',
         'btn_add_group': '建立',
-        'no_group_selected': '👈 请从左侧选择一个分组以查看或新增设备。',
+        'no_group_selected': '📁 请从「分组目录」中选择一个分组以查看或新增设备。',
         'btn_add_device': '新增设备',
         'btn_add_subgroup': '新增子分组',
         'btn_batch_move': '批量移动',
@@ -92,6 +97,7 @@ LOCALES = {
         'field_username': '账号',
         'field_password': '密码',
         'field_target_group': '选择目标分组',
+        'field_group': '所属分组',
         'confirm_delete_group': '确定要删除此分组吗？\n⚠️ 警告：这将会连带删除底下「所有的子分组」与「设备」！',
         'confirm_delete_device': '确定要删除此设备连线信息吗？',
         'toggle_show': '[显示]',
@@ -99,7 +105,12 @@ LOCALES = {
         'msg_required': '请填写此字段！',
         'edit_group_title': '编辑分组',
         'edit_device_title': '编辑设备信息',
-        'move_device_title': '移动已选设备'
+        'move_device_title': '移动已选设备',
+        'search_placeholder': '全站搜索设备、IP...',
+        'btn_search': '搜索',
+        'search_results': '全站搜索结果',
+        'no_search_result': '👻 找不到任何相符的设备...',
+        'no_devices': '目前此分组内没有任何设备。'
     },
     'en': {
         'sys_title': 'Connection Vault',
@@ -121,7 +132,7 @@ LOCALES = {
         'add_group_title': 'Add Root Group',
         'add_group_placeholder': 'Group Name...',
         'btn_add_group': 'Create',
-        'no_group_selected': '👈 Select a group from the left menu to view or add devices.',
+        'no_group_selected': '📁 Please select a group from the Directory to view or add devices.',
         'btn_add_device': 'Add Device',
         'btn_add_subgroup': 'Add Sub-group',
         'btn_batch_move': 'Move Selected',
@@ -135,6 +146,7 @@ LOCALES = {
         'field_username': 'Username',
         'field_password': 'Password',
         'field_target_group': 'Target Group',
+        'field_group': 'Group',
         'confirm_delete_group': 'Delete this group?\n⚠️ WARNING: This will cascade delete ALL sub-groups and devices within it!',
         'confirm_delete_device': 'Delete this device?',
         'toggle_show': '[Show]',
@@ -142,7 +154,12 @@ LOCALES = {
         'msg_required': 'This field is required!',
         'edit_group_title': 'Edit Group',
         'edit_device_title': 'Edit Device',
-        'move_device_title': 'Move Selected Devices'
+        'move_device_title': 'Move Selected Devices',
+        'search_placeholder': 'Global Search...',
+        'btn_search': 'Search',
+        'search_results': 'Global Search Results',
+        'no_search_result': '👻 No matching devices found...',
+        'no_devices': 'No devices found in this group.'
     }
 }
 
@@ -211,7 +228,7 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         if username == os.environ.get('ADMIN_USER', 'admin') and password == os.environ.get('ADMIN_PASS', 'admin123'):
-            session.permanent = True  # 🌟 核心修正：啟用自定義的安全超時生命週期
+            session.permanent = True
             session['logged_in'] = True
             return redirect(url_for('index'))
         return render_template('login.html', error=True)
@@ -231,7 +248,6 @@ def index():
     
     cursor.execute('SELECT id, parent_id, name, remark FROM groups ORDER BY name ASC')
     all_groups = cursor.fetchall()
-    
     group_dict = {g[0]: {'id': g[0], 'parent_id': g[1], 'name': g[2], 'remark': g[3], 'children': []} for g in all_groups}
     root_groups = []
     
@@ -242,10 +258,35 @@ def index():
             root_groups.append(g)
             
     selected_group_id = request.args.get('group_id')
+    search_query = request.args.get('q', '').strip()
+    
     selected_group = None
     devices = []
-    
-    if selected_group_id and int(selected_group_id) in group_dict:
+    is_search = False
+    lang = request.cookies.get('lang', 'zh-TW')
+    if lang not in LOCALES: lang = 'zh-TW'
+
+    if search_query:
+        is_search = True
+        selected_group = {
+            'id': 'search', 
+            'name': LOCALES[lang]['search_results'], 
+            'remark': f'關鍵字: {search_query}'
+        }
+        cursor.execute('''
+            SELECT id, name, ip, method, username, password, remark, group_id 
+            FROM devices 
+            WHERE name LIKE ? OR ip LIKE ? OR method LIKE ? OR username LIKE ? OR remark LIKE ? 
+            ORDER BY name ASC
+        ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
+        
+        devices_rows = cursor.fetchall()
+        for d in devices_rows:
+            g_path = get_full_group_path(d[7], group_dict)
+            devices.append({'id': d[0], 'name': d[1], 'ip': d[2], 'method': d[3], 'username': d[4], 'password': d[5], 'remark': d[6], 'group_path': g_path})
+
+    # 🌟 修正：加入 .isdigit() 防呆，避免字串引發轉型崩潰
+    elif selected_group_id and str(selected_group_id).isdigit() and int(selected_group_id) in group_dict:
         selected_group = group_dict[int(selected_group_id)]
         cursor.execute('''
             SELECT id, name, ip, method, username, password, remark 
@@ -256,7 +297,7 @@ def index():
             devices.append({'id': d[0], 'name': d[1], 'ip': d[2], 'method': d[3], 'username': d[4], 'password': d[5], 'remark': d[6]})
             
     conn.close()
-    return render_template('index.html', root_groups=root_groups, all_groups=all_groups, selected_group=selected_group, devices=devices)
+    return render_template('index.html', root_groups=root_groups, all_groups=all_groups, selected_group=selected_group, devices=devices, is_search=is_search, search_query=search_query)
 
 @app.route('/add_group', methods=['POST'])
 def add_group():
@@ -339,6 +380,10 @@ def edit_device(device_id):
         ''', (name, ip, method, username, password, remark, device_id))
         conn.commit()
         conn.close()
+    
+    # 🌟 修正：確保回到合法的頁面，如果是在搜尋頁面編輯，則返回總目錄
+    if not group_id or group_id == 'None' or group_id == 'search' or not str(group_id).isdigit():
+        return redirect(url_for('index'))
     return redirect(url_for('index', group_id=group_id))
 
 @app.route('/delete_device/<int:device_id>', methods=['POST'])
@@ -350,6 +395,10 @@ def delete_device(device_id):
     cursor.execute('DELETE FROM devices WHERE id = ?', (device_id,))
     conn.commit()
     conn.close()
+    
+    # 🌟 修正：確保防呆跳轉
+    if not group_id or group_id == 'None' or group_id == 'search' or not str(group_id).isdigit():
+        return redirect(url_for('index'))
     return redirect(url_for('index', group_id=group_id))
 
 @app.route('/batch_move', methods=['POST'])
@@ -357,7 +406,6 @@ def batch_move():
     if not session.get('logged_in'): return redirect(url_for('login'))
     target_group_id = request.form.get('target_group_id')
     device_ids_str = request.form.get('device_ids', '')
-    current_group_id = request.form.get('current_group_id')
     
     if target_group_id and device_ids_str:
         d_ids = [int(x) for x in device_ids_str.split(',') if x.isdigit()]
@@ -370,7 +418,7 @@ def batch_move():
             conn.commit()
             conn.close()
             return redirect(url_for('index', group_id=target_group_id))
-    return redirect(url_for('index', group_id=current_group_id))
+    return redirect(url_for('index'))
 
 @app.route('/download_template')
 def download_template():
@@ -378,7 +426,6 @@ def download_template():
     output = io.StringIO()
     writer = csv.writer(output)
     lang = request.cookies.get('lang', 'zh-TW')
-    
     if lang == 'en':
         writer.writerow(['Group Path', 'Group Remark', 'Device Name', 'IP Address', 'Connection Method', 'Username', 'Password', 'Device Remark'])
         writer.writerow(['Headquarters / Server Room A', 'Main Office', 'Core_Switch_01', '192.168.1.254', 'SSH', 'admin', 'Pass123', 'Core Network'])
@@ -397,12 +444,10 @@ def download_template():
 @app.route('/export_data')
 def export_data():
     if not session.get('logged_in'): return redirect(url_for('login'))
-    
     group_id = request.args.get('group_id', 'all')
     output = io.StringIO()
     writer = csv.writer(output)
     lang = request.cookies.get('lang', 'zh-TW')
-    
     if lang == 'en':
         writer.writerow(['Group Path', 'Group Remark', 'Device Name', 'IP Address', 'Connection Method', 'Username', 'Password', 'Device Remark'])
     elif lang == 'zh-CN':
@@ -412,7 +457,6 @@ def export_data():
         
     conn = get_db()
     cursor = conn.cursor()
-    
     cursor.execute('SELECT id, parent_id, name, remark FROM groups')
     group_dict = {r[0]: {'id': r[0], 'parent_id': r[1], 'name': r[2], 'remark': r[3]} for r in cursor.fetchall()}
     
@@ -422,10 +466,7 @@ def export_data():
             FROM devices WHERE group_id = ? ORDER BY name ASC
         ''', (int(group_id),))
     else:
-        cursor.execute('''
-            SELECT group_id, name, ip, method, username, password, remark 
-            FROM devices ORDER BY group_id ASC, name ASC
-        ''')
+        cursor.execute('SELECT group_id, name, ip, method, username, password, remark FROM devices ORDER BY group_id ASC, name ASC')
         
     for row in cursor.fetchall():
         g_id, d_name, d_ip, d_method, d_user, d_pass, d_remark = row
@@ -446,7 +487,6 @@ def import_csv():
     file = request.files.get('csv_file')
     if not file or file.filename == '':
         return redirect(url_for('index'))
-        
     try:
         stream = io.StringIO(file.stream.read().decode("utf-8-sig"), newline=None)
         csv_reader = csv.reader(stream)
@@ -456,10 +496,8 @@ def import_csv():
         is_old_format = len(headers) < 8
         conn = get_db()
         cursor = conn.cursor()
-        
         for row in csv_reader:
             if not row or len(row) < 2: continue
-            
             if is_old_format:
                 g_path_str = row[0].strip()
                 g_remark = ''
@@ -480,19 +518,16 @@ def import_csv():
                 d_remark = row[7].strip() if len(row) > 7 else ''
             
             if not g_path_str or not d_name: continue
-            
             path_parts = [p.strip() for p in g_path_str.split('/') if p.strip()]
             if not path_parts: continue
             
             parent_id = None
             for i, part in enumerate(path_parts):
                 is_last_leaf = (i == len(path_parts) - 1)
-                
                 if parent_id is None:
                     cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id IS NULL', (part,))
                 else:
                     cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id = ?', (part, parent_id))
-                
                 g_row = cursor.fetchone()
                 if g_row:
                     group_id = g_row[0]
@@ -502,21 +537,14 @@ def import_csv():
                     cursor.execute('INSERT INTO groups (name, remark, parent_id) VALUES (?, ?, ?)', 
                                    (part, g_remark if is_last_leaf else '', parent_id))
                     group_id = cursor.lastrowid
-                
                 parent_id = group_id
             
             cursor.execute('SELECT id FROM devices WHERE group_id = ? AND name = ?', (group_id, d_name))
             d_row = cursor.fetchone()
             if d_row:
-                cursor.execute('''
-                    UPDATE devices SET ip=?, method=?, username=?, password=?, remark=? WHERE id=?
-                ''', (d_ip, d_method, d_user, d_pass, d_remark, d_row[0]))
+                cursor.execute('UPDATE devices SET ip=?, method=?, username=?, password=?, remark=? WHERE id=?', (d_ip, d_method, d_user, d_pass, d_remark, d_row[0]))
             else:
-                cursor.execute('''
-                    INSERT INTO devices (group_id, name, ip, method, username, password, remark)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (group_id, d_name, d_ip, d_method, d_user, d_pass, d_remark))
-            
+                cursor.execute('INSERT INTO devices (group_id, name, ip, method, username, password, remark) VALUES (?, ?, ?, ?, ?, ?, ?)', (group_id, d_name, d_ip, d_method, d_user, d_pass, d_remark))
         conn.commit()
         conn.close()
     except Exception as e:
