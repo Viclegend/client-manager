@@ -3,7 +3,7 @@ import io
 import csv
 import sqlite3
 from datetime import timedelta
-from flask import Flask, render_template, request, redirect, url_for, session, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, make_response, flash
 
 app = Flask(__name__)
 
@@ -31,7 +31,7 @@ LOCALES = {
         'btn_browse': '選擇檔案',
         'no_file_chosen': '尚未選擇檔案',
         'sidebar_title': '🏢 群組目錄',
-        'add_group_title': '建立主群組',
+        'add_group_title': '建立群組',
         'add_group_placeholder': '群組名稱...',
         'btn_add_group': '建立',
         'no_group_selected': '📁 請從「群組目錄」中選擇一個群組以檢視或新增設備。',
@@ -61,7 +61,11 @@ LOCALES = {
         'btn_search': '搜尋',
         'search_results': '全站搜尋結果',
         'no_search_result': '👻 找不到任何相符的設備...', 
-        'no_devices': '目前此群組內沒有任何設備。'
+        'no_devices': '目前此群組內沒有任何設備。',
+        'msg_duplicate_group': '⚠️ 操作失敗：該層級底下已存在相同名稱的群組！',
+        'confirm_delete_title': '安全二次確認', # 🌟 新增
+        'field_confirm_password': '請輸入管理員密碼以確認刪除：', # 🌟 新增
+        'msg_delete_password_error': '❌ 密碼驗證失敗：管理員密碼錯誤，拒絕刪除群組！' # 🌟 新增
     },
     'zh-CN': {
         'sys_title': '连线信息库',
@@ -80,7 +84,7 @@ LOCALES = {
         'btn_browse': '选择文件',
         'no_file_chosen': '未选择文件',
         'sidebar_title': '🏢 分组目录',
-        'add_group_title': '建立主分组',
+        'add_group_title': '建立分组',
         'add_group_placeholder': '分组名称...',
         'btn_add_group': '建立',
         'no_group_selected': '📁 请从「分组目录」中选择一个分组以查看或新增设备。',
@@ -110,7 +114,11 @@ LOCALES = {
         'btn_search': '搜索',
         'search_results': '全站搜索结果',
         'no_search_result': '👻 找不到任何相符的设备...',
-        'no_devices': '目前此分组内没有任何设备。'
+        'no_devices': '目前此分组内没有任何设备。',
+        'msg_duplicate_group': '⚠️ 操作失败：该层级底下已存在相同名称的分组！',
+        'confirm_delete_title': '安全二次确认',
+        'field_confirm_password': '请输入管理员密码以确认删除：',
+        'msg_delete_password_error': '❌ 密码验证失败：管理员密码错误，拒绝删除分组！'
     },
     'en': {
         'sys_title': 'Connection Vault',
@@ -129,7 +137,7 @@ LOCALES = {
         'btn_browse': 'Browse...',
         'no_file_chosen': 'No file chosen',
         'sidebar_title': '🏢 Directory',
-        'add_group_title': 'Add Root Group',
+        'add_group_title': 'Add Group',
         'add_group_placeholder': 'Group Name...',
         'btn_add_group': 'Create',
         'no_group_selected': '📁 Please select a group from the Directory to view or add devices.',
@@ -159,7 +167,11 @@ LOCALES = {
         'btn_search': 'Search',
         'search_results': 'Global Search Results',
         'no_search_result': '👻 No matching devices found...',
-        'no_devices': 'No devices found in this group.'
+        'no_devices': 'No devices found in this group.',
+        'msg_duplicate_group': '⚠️ Failed: A group with the same name already exists at this level!',
+        'confirm_delete_title': 'Security Confirmation',
+        'field_confirm_password': 'Enter admin password to confirm deletion:',
+        'msg_delete_password_error': '❌ Verification Failed: Incorrect password, group deletion denied!'
     }
 }
 
@@ -285,7 +297,6 @@ def index():
             g_path = get_full_group_path(d[7], group_dict)
             devices.append({'id': d[0], 'name': d[1], 'ip': d[2], 'method': d[3], 'username': d[4], 'password': d[5], 'remark': d[6], 'group_path': g_path})
 
-    # 🌟 修正：加入 .isdigit() 防呆，避免字串引發轉型崩潰
     elif selected_group_id and str(selected_group_id).isdigit() and int(selected_group_id) in group_dict:
         selected_group = group_dict[int(selected_group_id)]
         cursor.execute('''
@@ -306,9 +317,23 @@ def add_group():
     remark = request.form.get('remark', '').strip()
     parent_id = request.form.get('parent_id')
     
+    lang = request.cookies.get('lang', 'zh-TW')
+    if lang not in LOCALES: lang = 'zh-TW'
+
     if name:
         conn = get_db()
         cursor = conn.cursor()
+        
+        if parent_id:
+            cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id = ?', (name, parent_id))
+        else:
+            cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id IS NULL', (name,))
+            
+        if cursor.fetchone():
+            flash(LOCALES[lang]['msg_duplicate_group'], 'warning')
+            conn.close()
+            return redirect(url_for('index', group_id=parent_id if parent_id else None))
+            
         cursor.execute('INSERT INTO groups (name, remark, parent_id) VALUES (?, ?, ?)', 
                        (name, remark, parent_id if parent_id else None))
         new_id = cursor.lastrowid
@@ -322,17 +347,45 @@ def edit_group(group_id):
     if not session.get('logged_in'): return redirect(url_for('login'))
     name = request.form.get('group_name', '').strip()
     remark = request.form.get('remark', '').strip()
+    
+    lang = request.cookies.get('lang', 'zh-TW')
+    if lang not in LOCALES: lang = 'zh-TW'
+
     if name:
         conn = get_db()
         cursor = conn.cursor()
-        cursor.execute('UPDATE groups SET name = ?, remark = ? WHERE id = ?', (name, remark, group_id))
-        conn.commit()
+        cursor.execute('SELECT parent_id FROM groups WHERE id = ?', (group_id,))
+        row = cursor.fetchone()
+        if row:
+            parent_id = row[0]
+            if parent_id:
+                cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id = ? AND id != ?', (name, parent_id, group_id))
+            else:
+                cursor.execute('SELECT id FROM groups WHERE name = ? AND parent_id IS NULL AND id != ?', (name, group_id))
+                
+            if cursor.fetchone():
+                flash(LOCALES[lang]['msg_duplicate_group'], 'warning')
+            else:
+                cursor.execute('UPDATE groups SET name = ?, remark = ? WHERE id = ?', (name, remark, group_id))
+                conn.commit()
         conn.close()
     return redirect(url_for('index', group_id=group_id))
 
 @app.route('/delete_group/<int:group_id>', methods=['POST'])
 def delete_group(group_id):
     if not session.get('logged_in'): return redirect(url_for('login'))
+    
+    # 🌟 核心資安防護修正：從表單獲取輸入的密碼，並與環境變數比對
+    password = request.form.get('admin_password', '').strip()
+    correct_pass = os.environ.get('ADMIN_PASS', 'admin123')
+    
+    lang = request.cookies.get('lang', 'zh-TW')
+    if lang not in LOCALES: lang = 'zh-TW'
+    
+    if password != correct_pass:
+        flash(LOCALES[lang]['msg_delete_password_error'], 'danger') # 彈出錯誤通知
+        return redirect(url_for('index', group_id=group_id)) # 密碼錯誤則安全折返
+        
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('DELETE FROM groups WHERE id = ?', (group_id,))
@@ -381,7 +434,6 @@ def edit_device(device_id):
         conn.commit()
         conn.close()
     
-    # 🌟 修正：確保回到合法的頁面，如果是在搜尋頁面編輯，則返回總目錄
     if not group_id or group_id == 'None' or group_id == 'search' or not str(group_id).isdigit():
         return redirect(url_for('index'))
     return redirect(url_for('index', group_id=group_id))
@@ -396,7 +448,6 @@ def delete_device(device_id):
     conn.commit()
     conn.close()
     
-    # 🌟 修正：確保防呆跳轉
     if not group_id or group_id == 'None' or group_id == 'search' or not str(group_id).isdigit():
         return redirect(url_for('index'))
     return redirect(url_for('index', group_id=group_id))

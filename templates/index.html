@@ -115,6 +115,18 @@
 </nav>
 
 <div class="container-fluid mt-3">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show shadow-sm border-0 mb-3" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
     <div class="row">
         
         <div class="col-md-4 col-lg-2 mb-4 d-none d-md-block border-end" style="min-height: 85vh;">
@@ -128,7 +140,7 @@
                 {% for g in nodes %}
                 <li class="my-1">
                     <a href="{{ url_for('index', group_id=g.id) }}" class="tree-node {% if not is_search and selected_group and g.id == selected_group.id %}active{% endif %}">
-                        {% if g.children %}📂{% else %}📄{% endif %} {{ g.name }}
+                        {% if g.children %}📂{% else %}📁{% endif %} {{ g.name }}
                     </a>
                     {% if g.children %}
                         {{ render_tree(g.children) }}
@@ -188,9 +200,7 @@
                             <button class="btn btn-sm btn-outline-primary fw-bold text-nowrap" data-bs-toggle="modal" data-bs-target="#addDeviceModal">➕ {{ t.btn_add_device }}</button>
                             <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#addGroupModal" onclick="openAddGroupModal({{ selected_group.id }})">📁 {{ t.btn_add_subgroup }}</button>
                             <button class="btn btn-sm btn-outline-secondary text-nowrap" data-bs-toggle="modal" data-bs-target="#editGroupModal">✏️ {{ t.btn_edit }}</button>
-                            <form action="{{ url_for('delete_group', group_id=selected_group.id) }}" method="POST" class="d-inline" onsubmit="return confirm('{{ t.confirm_delete_group }}');">
-                                <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: 0 4px 4px 0; height: 100%;">🗑️</button>
-                            </form>
+                            <button type="button" class="btn btn-sm btn-outline-danger" style="border-radius: 0 4px 4px 0; height: 100%;" data-bs-toggle="modal" data-bs-target="#deleteGroupModal">🗑️</button>
                         {% endif %}
                     </div>
                 </div>
@@ -289,8 +299,8 @@
     </div>
 </div>
 
+<!-- ================= Modals ================= -->
 {% if selected_group %}
-
 <div class="modal fade" id="batchMoveModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-sm">
         <form action="{{ url_for('batch_move') }}" method="POST" class="modal-content">
@@ -298,7 +308,6 @@
             <div class="modal-body">
                 <input type="hidden" name="device_ids" id="batchDeviceIds">
                 <input type="hidden" name="current_group_id" value="{{ selected_group.id }}">
-                
                 <label class="form-label fw-bold">{{ t.field_target_group }}</label>
                 <select name="target_group_id" class="form-select border-info shadow-sm" required>
                     <option value="" disabled selected>-- {{ t.field_target_group }} --</option>
@@ -338,10 +347,29 @@
         </form>
     </div>
 </div>
-
 {% endif %}
 
+<!-- 🌟 修正點二：把刪除群組 Modal 移到這區塊，避免全域搜尋時呼叫到不存在的路由 -->
 {% if selected_group and not is_search %}
+<div class="modal fade" id="deleteGroupModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <form action="{{ url_for('delete_group', group_id=selected_group.id) }}" method="POST" class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-danger">⚠️ {{ t.confirm_delete_title }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-start">
+                <p class="small text-wrap mb-3 fw-bold text-secondary">{{ t.confirm_delete_group | replace('\n', '<br>') | safe }}</p>
+                <label class="form-label small fw-bold mb-1">{{ t.field_confirm_password }}</label>
+                <input type="password" name="admin_password" class="form-control form-control-sm border-danger" required autofocus>
+            </div>
+            <div class="modal-footer p-2">
+                <button type="submit" class="btn btn-danger btn-sm w-100 fw-bold">💥 確認核對並強制刪除</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal fade" id="addGroupModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <form action="{{ url_for('add_group') }}" method="POST" class="modal-content">
@@ -437,13 +465,16 @@
                     <label class="form-label fw-bold">{{ t.field_name }} <span class="text-danger">*</span></label>
                     <input type="text" name="group_name" class="form-control" required>
                 </div>
+                <div class="mb-2">
+                    <label class="form-label fw-bold">{{ t.field_remark }}</label>
+                    <input type="text" name="remark" class="form-control">
+                </div>
             </div>
             <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">{{ t.btn_add_group }}</button></div>
         </form>
     </div>
 </div>
 {% endif %}
-
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
@@ -524,6 +555,7 @@
 
     function updateBatchMoveState() {
         if (!btnBatchMove) return;
+        // 🌟 修正點一：移除了這裡產生語法錯誤的游離百分號字元
         const activeChks = Array.from(document.querySelectorAll('#deviceTableBody .device-chk, #mobileCardContainer .device-chk'));
         const checkedValues = Array.from(new Set(activeChks.filter(chk => chk.checked).map(chk => chk.value)));
         
