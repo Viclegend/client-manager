@@ -17,7 +17,7 @@
 
 **1. 下載專案**
 ```bash
-git clone [https://github.com/Viclegend/connection-vault.git](https://github.com/Viclegend/connection-vault.git)
+git clone https://github.com/Viclegend/connection-vault.git
 cd connection-vault
 ```
 
